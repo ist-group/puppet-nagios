@@ -11,8 +11,8 @@ fi
 STATUS=$(curl --silent --show-error --head --location $1 2>&1)
 
 if [ $? -ne 0 ]; then
-  echo "UNKNOWN - $STATUS"
-  exit 3
+  echo "CRITICAL - $STATUS"
+  exit 2
 fi
 
 CODE=$(echo $STATUS | grep HTTP | cut -d ' ' -f 2)
