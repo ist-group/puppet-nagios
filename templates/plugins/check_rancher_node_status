@@ -29,12 +29,12 @@ URL="${URL#https://}"
 STATUS=$(curl --silent --show-error "https://$ACCESS_KEY:$SECRET_KEY@$URL/v2-beta/hosts?limit=1000" | jq -r --arg FQDN "$FQDN" '.data[] | select(.hostname==$FQDN) | .state')
 
 if [ $STATUS = 'active' ]; then
-  echo OK
+  echo OK - $STATUS
   exit 0
 elif [ $STATUS = 'inactive' ]; then
-  echo WARNING
+  echo WARNING - $STATUS
   exit 1
 else
-  echo CRITICAL
+  echo CRITICAL - $STATUS
   exit 2
 fi
