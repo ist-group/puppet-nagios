@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+FQDN=$(hostname -f)
+
+while getopts "u:a:s:h::" opt; do
+  case "$opt" in
+    u)
+      URL="$OPTARG"
+      ;;
+    a)
+      ACCESS_KEY="$OPTARG"
+      ;;
+    s)
+      SECRET_KEY="$OPTARG"
+      ;;
+    h)
+      FQDN="$OPTARG"
+      ;;
+  esac
+done
+
+if [[ -z $URL || -z $ACCESS_KEY || -z $SECRET_KEY || -z $FQDN ]]; then
+  echo "Usage: $0 -u https://rancher.url -a <access-key> -s <secret-key> -h <fqdn>"
+  exit 1
+fi
+
+URL="${URL#https://}"
+
+STATUS=$(curl --silent --show-error "https://$ACCESS_KEY:$SECRET_KEY@$URL/v2-beta/hosts?limit=1000" | jq -r --arg FQDN "$FQDN" '.data[] | select(.hostname==$FQDN) | .state')
+
+if [ $STATUS = 'active' ]; then
+  echo OK
+  exit 0
+elif [ $STATUS = 'inactive' ]; then
+  echo WARNING
+  exit 1
+else
+  echo CRITICAL
+  exit 2
+fi
