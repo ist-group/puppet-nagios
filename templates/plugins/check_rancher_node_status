@@ -2,6 +2,16 @@
 
 FQDN=$(hostname -f)
 
+if [[ $(command -v jq >/dev/null 2>&1) -ne "0" ]]; then
+  echo "CRITICAL - Jq is missing"
+  exit 2
+fi
+
+if [[ $(command -v curl >/dev/null 2>&1) -ne "0" ]]; then
+  echo "CRITICAL - Curl is missing"
+  exit 2
+fi
+
 while getopts "u:a:s:h::" opt; do
   case "$opt" in
     u)
