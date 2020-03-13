@@ -78,5 +78,5 @@ if [ $LC_NUMERIC != $OLD_LC_NUMERIC ]; then
   export LC_NUMERIC=$OLD_LC_NUMERIC
 fi
 
-[[ $STATUS ]] && echo -e $STATUS
+[[ $STATUS ]] && echo $STATUS
 [[ $CODE ]] && exit $CODE
