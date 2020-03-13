@@ -44,26 +44,26 @@ if command -v mysql >/dev/null 2>&1; then
     SHOULDBE_INNODB_BUFFER_POOL_SIZE=$(( ($INNODB_DATA_SIZE_RAW >>30) + 1 )) # GiB
     SHOULDBE_INNODB_BUFFER_POOL_SIZE_BYTES=$(( $SHOULDBE_INNODB_BUFFER_POOL_SIZE <<30 )) # B
     if [ $SHOULDBE_INNODB_BUFFER_POOL_SIZE_BYTES != $INNODB_BUFFER_POOL_SIZE ]; then
-     STATUS+="innodb_buffer_pool_size: ${SHOULDBE_INNODB_BUFFER_POOL_SIZE}G\n"
+     STATUS+="innodb_buffer_pool_size: ${SHOULDBE_INNODB_BUFFER_POOL_SIZE}G, "
      CODE=1
     fi
     SHOULDBE_INNODB_BUFFER_POOL_INSTANCES=$SHOULDBE_INNODB_BUFFER_POOL_SIZE
     if [ $SHOULDBE_INNODB_BUFFER_POOL_INSTANCES != $INNODB_BUFFER_POOL_INSTANCES ]; then
-     STATUS+="innodb_buffer_pool_instances: $SHOULDBE_INNODB_BUFFER_POOL_INSTANCES\n"
+     STATUS+="innodb_buffer_pool_instances: $SHOULDBE_INNODB_BUFFER_POOL_INSTANCES, "
      CODE=1
     fi
     SHOULDBE_INNODB_LOG_FILE_SIZE=$(printf "%0.0f\n" $(bc -l <<<'(1/8)*1024')) # MiB
     SHOULDBE_INNODB_LOG_FILE_SIZE_BYTES=$(( $SHOULDBE_INNODB_LOG_FILE_SIZE <<20 )) # B
     if [ $SHOULDBE_INNODB_LOG_FILE_SIZE_BYTES != $INNODB_LOG_FILE_SIZE ]; then
-     STATUS+="innodb_log_file_size: ${SHOULDBE_INNODB_LOG_FILE_SIZE}M\n"
+     STATUS+="innodb_log_file_size: ${SHOULDBE_INNODB_LOG_FILE_SIZE}M, "
      CODE=1
     fi
     SHOULDBE_MAX_CONNECTIONS=$(( ($SAFE_MEMORY - $SHOULDBE_INNODB_BUFFER_POOL_SIZE_BYTES) / $PER_THREAD_BUFFER_SIZE ))
     if [ $SHOULDBE_MAX_CONNECTIONS != $MAX_CONNECTIONS ]; then
-     STATUS+="max_connections: $SHOULDBE_MAX_CONNECTIONS\n"
+     STATUS+="max_connections: ${SHOULDBE_MAX_CONNECTIONS}, "
      CODE=1
     fi
-    STATUS=${STATUS%%\\n}
+    STATUS=${STATUS%%', '}
     if [ $CODE -ne 1 ]; then
       STATUS='OK - Running optimized mysql instance'
       CODE=0
