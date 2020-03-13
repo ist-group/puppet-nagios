@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+if [ $LC_NUMERIC != 'C' ]; then
+  OLD_LC_NUMERIC=$LC_NUMERIC
+  export LC_NUMERIC=C
+fi
+
+MYSQL_VARIABLES=(
+innodb_buffer_pool_size
+innodb_buffer_pool_instances
+innodb_log_file_size
+max_connections
+)
+
+if command -v mysql >/dev/null 2>&1; then
+  if echo 'STATUS' | mysql >/dev/null 2>&1; then
+    TOTAL_MEMORY=$(free -b | awk '/Mem:/ {print $2}')
+    # 90% of total memory, rounded down
+    SAFE_MEMORY=$(echo "$TOTAL_MEMORY * 0.90" | bc | awk '{print int($1)}')
+    FIRST=true
+    # get values from variables
+    for KEY in ${MYSQL_VARIABLES[@]}; do
+      if [ $FIRST = true ]; then
+        QUERY="SELECT @@GLOBAL.$KEY"
+      else
+        QUERY+=",@@GLOBAL.$KEY"
+      fi
+      FIRST=false
+    done
+    QUERY+=';'
+    ANSWERS=($(echo $QUERY | mysql --skip-column-names))
+    INNODB_BUFFER_POOL_SIZE=${ANSWERS[0]}
+    INNODB_BUFFER_POOL_INSTANCES=${ANSWERS[1]}
+    INNODB_LOG_FILE_SIZE=${ANSWERS[2]}
+    MAX_CONNECTIONS=${ANSWERS[3]}
+
+    INNODB_DATA_SIZE_RAW=$(echo "SELECT SUM(DATA_LENGTH+INDEX_LENGTH) FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql') AND ENGINE = 'InnoDB';" | mysql --skip-column-names)
+    # datasize + 25%, rounded down
+    INNODB_DATA_SIZE=$(echo "$INNODB_DATA_SIZE_RAW * 1.25" | bc | awk '{print int($1)}')
+    # per_thread_buffer = read_buffer_size + read_rnd_buffer_size + sort_buffer_size + thread_stack + max_allowed_packet + join_buffer_size
+    # https://github.com/jfcoz/MySQLTuner-perl/commit/c5765f02133259b40d9932eb7d35ba5c1665bad9 fix included
+    PER_THREAD_BUFFER_SIZE=$(echo "SELECT @@GLOBAL.read_buffer_size,@@GLOBAL.read_rnd_buffer_size,@@GLOBAL.sort_buffer_size,@@GLOBAL.thread_stack,@@GLOBAL.max_allowed_packet,@@GLOBAL.join_buffer_size;" | mysql --skip-column-names | sed 's/\t/\+/g' | bc)
+
+    SHOULDBE_INNODB_BUFFER_POOL_SIZE=$(( ($INNODB_DATA_SIZE_RAW >>30) + 1 )) # GiB
+    SHOULDBE_INNODB_BUFFER_POOL_SIZE_BYTES=$(( $SHOULDBE_INNODB_BUFFER_POOL_SIZE <<30 )) # B
+    if [ $SHOULDBE_INNODB_BUFFER_POOL_SIZE_BYTES != $INNODB_BUFFER_POOL_SIZE ]; then
+     STATUS+="innodb_buffer_pool_size: ${SHOULDBE_INNODB_BUFFER_POOL_SIZE}G\n"
+     CODE=1
+    fi
+    SHOULDBE_INNODB_BUFFER_POOL_INSTANCES=$SHOULDBE_INNODB_BUFFER_POOL_SIZE
+    if [ $SHOULDBE_INNODB_BUFFER_POOL_INSTANCES != $INNODB_BUFFER_POOL_INSTANCES ]; then
+     STATUS+="innodb_buffer_pool_instances: $SHOULDBE_INNODB_BUFFER_POOL_INSTANCES\n"
+     CODE=1
+    fi
+    SHOULDBE_INNODB_LOG_FILE_SIZE=$(printf "%0.0f\n" $(bc -l <<<'(1/8)*1024')) # MiB
+    SHOULDBE_INNODB_LOG_FILE_SIZE_BYTES=$(( $SHOULDBE_INNODB_LOG_FILE_SIZE <<20 )) # B
+    if [ $SHOULDBE_INNODB_LOG_FILE_SIZE_BYTES != $INNODB_LOG_FILE_SIZE ]; then
+     STATUS+="innodb_log_file_size: ${SHOULDBE_INNODB_LOG_FILE_SIZE}M\n"
+     CODE=1
+    fi
+    SHOULDBE_MAX_CONNECTIONS=$(( ($SAFE_MEMORY - $SHOULDBE_INNODB_BUFFER_POOL_SIZE_BYTES) / $PER_THREAD_BUFFER_SIZE ))
+    if [ $SHOULDBE_MAX_CONNECTIONS != $MAX_CONNECTIONS ]; then
+     STATUS+="max_connections: $SHOULDBE_MAX_CONNECTIONS\n"
+     CODE=1
+    fi
+    STATUS=${STATUS%%\\n}
+    if [ $CODE -ne 1 ]; then
+      STATUS='OK - Running optimized mysql instance'
+      CODE=0
+    fi
+  else
+    STATUS="CRITICAL - could not pipe 'STATUS' to 'mysql', check that mysql server is running"
+    CODE=2
+  fi
+fi
+
+if [ $LC_NUMERIC != $OLD_LC_NUMERIC ]; then
+  export LC_NUMERIC=$OLD_LC_NUMERIC
+fi
+
+[[ $STATUS ]] && echo -e $STATUS
+[[ $CODE ]] && exit $CODE
