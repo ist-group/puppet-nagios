@@ -63,7 +63,8 @@ if command -v mysql >/dev/null 2>&1; then
      STATUS+="max_connections: ${SHOULDBE_MAX_CONNECTIONS}, "
      CODE=1
     fi
-    STATUS=${STATUS%%', '}
+    STATUS=${STATUS%', '}
+    STATUS="Settings to adjust: $STATUS"
     if [ $CODE -ne 1 ]; then
       STATUS='OK - Running optimized mysql instance'
       CODE=0
