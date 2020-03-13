@@ -64,7 +64,7 @@ if command -v mysql >/dev/null 2>&1; then
      CODE=1
     fi
     STATUS=${STATUS%', '}
-    STATUS="Settings to adjust: $STATUS"
+    STATUS="ADJUST: $STATUS"
     if [ $CODE -ne 1 ]; then
       STATUS='OK - Running optimized mysql instance'
       CODE=0
