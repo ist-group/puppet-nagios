@@ -41,7 +41,11 @@ if command -v mysql >/dev/null 2>&1; then
     # https://github.com/jfcoz/MySQLTuner-perl/commit/c5765f02133259b40d9932eb7d35ba5c1665bad9 fix included
     PER_THREAD_BUFFER_SIZE=$(echo "SELECT @@GLOBAL.read_buffer_size,@@GLOBAL.read_rnd_buffer_size,@@GLOBAL.sort_buffer_size,@@GLOBAL.thread_stack,@@GLOBAL.max_allowed_packet,@@GLOBAL.join_buffer_size;" | mysql --skip-column-names | sed 's/\t/\+/g' | bc)
 
-    SHOULDBE_INNODB_BUFFER_POOL_SIZE=$(( ($INNODB_DATA_SIZE_RAW >>30) + 1 )) # GiB
+    if [ $INNODB_DATA_SIZE_RAW -lt 1073741824 ]; then
+      SHOULDBE_INNODB_BUFFER_POOL_SIZE=$(( ($INNODB_DATA_SIZE_RAW >>30) + 1 )) # GiB
+    else
+      SHOULDBE_INNODB_BUFFER_POOL_SIZE=$(( ($INNODB_DATA_SIZE_RAW >>30) + 2 )) # GiB
+    fi
     SHOULDBE_INNODB_BUFFER_POOL_SIZE_BYTES=$(( $SHOULDBE_INNODB_BUFFER_POOL_SIZE <<30 )) # B
     if [ $SHOULDBE_INNODB_BUFFER_POOL_SIZE_BYTES != $INNODB_BUFFER_POOL_SIZE ]; then
      STATUS+="innodb_buffer_pool_size: ${SHOULDBE_INNODB_BUFFER_POOL_SIZE}G, "
