@@ -25,7 +25,7 @@ if [[ $(command -v jq >/dev/null 2>&1) -eq "0" ]]; then
       URL=${URL#https://} # remove https:// from URL
       ACCOUNTID=$(curl --silent --show-error "https://$ACCESS_KEY:$SECRET_KEY@$URL/v2-beta/hosts?limit=1000" | jq -r --arg FQDN "$FQDN" '.data[] | select(.hostname==$FQDN) | .accountId')
       ENVIRONMENTNAME=$(curl --silent --show-error "https://$ACCESS_KEY:$SECRET_KEY@$URL/v2-beta/accounts/$ACCOUNTID" | jq -r .name)
-      RANCHERENV=$(facter --external-dir /opt/puppetlabs/facter/facts.d/ rancherenv)
+      RANCHERENV=$(/opt/puppetlabs/bin/facter --external-dir /opt/puppetlabs/facter/facts.d/ rancherenv)
       if [ "t$RANCHERENV" != "t" ]; then
         if [ "$ENVIRONMENTNAME" == "$RANCHERENV" ]; then
           STATUS='OK - rancherenv is up to date'
