@@ -20,24 +20,34 @@ if [[ $(command -v jq >/dev/null 2>&1) -eq "0" ]]; then
         esac
       done
       if [[ -z $URL || -z $ACCESS_KEY || -z $SECRET_KEY || -z $FQDN ]]; then
-        STATUS="CRITICAL - required args missing: '-u https://<rancherurl> -a <access-key> -s <secret-key> -h <fqdn>'"
-        CODE=2
+        STATUS="UNKOWN - one or more required arg(s) is missing: '-u https://<rancherurl> -a <access-key> -s <secret-key> -h <fqdn>'"
+        CODE=3
       else
         URL=${URL#https://} # remove https:// from URL
         ACCOUNTID=$(curl --silent --show-error "https://$ACCESS_KEY:$SECRET_KEY@$URL/v2-beta/hosts?limit=1000" | jq -r --arg FQDN "$FQDN" '.data[] | select(.hostname==$FQDN) | .accountId')
-        ENVIRONMENTNAME=$(curl --silent --show-error "https://$ACCESS_KEY:$SECRET_KEY@$URL/v2-beta/accounts/$ACCOUNTID" | jq -r .name)
-        RANCHERENV=$(/opt/puppetlabs/bin/facter --external-dir /opt/puppetlabs/facter/facts.d/ rancherenv)
-        if [ "t$RANCHERENV" != "t" ]; then
-          if [ "$ENVIRONMENTNAME" == "$RANCHERENV" ]; then
-            STATUS='OK - rancherenv is up to date'
-            CODE=0
+        if [ "t$ACCOUNTID" != "t" ]; then
+          ENVIRONMENTNAME=$(curl --silent --show-error "https://$ACCESS_KEY:$SECRET_KEY@$URL/v2-beta/accounts/$ACCOUNTID" | jq -r .name)
+          RANCHERENV=$(/opt/puppetlabs/bin/facter --external-dir /opt/puppetlabs/facter/facts.d/ rancherenv)
+          if [ "t$RANCHERENV" != "t" ]; then
+            if [ "t$ENVIRONMENTNAME" != "t" ]; then
+              if [ "$ENVIRONMENTNAME" == "$RANCHERENV" ]; then
+                STATUS='OK - rancherenv is up to date'
+                CODE=0
+              else
+                STATUS="CRITICAL - rancherenv: '$RANCHERENV' does not match environment name in rancher: '$ENVIRONMENTNAME'"
+                CODE=2
+              fi
+            else
+              STATUS='CRITICAL - $ENVIRONMENTNAME cannot be empty'
+              CODE=2
+            fi
           else
-            STATUS="CRITICAL - rancherenv: '$RANCHERENV' does not match environment name in rancher: '$ENVIRONMENTNAME'"
-            CODE=2
+            STATUS='WARNING - missing fact: $::rancherenv, add an add_facts entry to the hosts nodefile'
+            CODE=1
           fi
         else
-          STATUS='WARNING - missing fact: $::rancherenv, add an add_facts entry to the hosts nodefile'
-          CODE=1
+          STATUS='CRITICAL - $ACCOUNTID cannot be empty'
+          CODE=2
         fi
       fi
     else
