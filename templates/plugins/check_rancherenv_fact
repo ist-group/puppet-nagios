@@ -36,21 +36,21 @@ if [[ $(command -v jq >/dev/null 2>&1) -eq "0" ]]; then
             CODE=2
           fi
         else
-          STATUS='CRITICAL - missing fact: $::rancherenv, add an add_facts entry to the hosts nodefile'
+          STATUS='WARNING - missing fact: $::rancherenv, add an add_facts entry to the hosts nodefile'
           CODE=1
         fi
       fi
     else
-      STATUS='CRITICAL - 'facter' is missing'
-      CODE=2
+      STATUS="UNKOWN - 'facter' is missing"
+      CODE=3
     fi
   else
-    STATUS="CRITICAL - 'curl' is missing"
-    CODE=2
+    STATUS="UNKOWN - 'curl' is missing"
+    CODE=3
   fi
 else
-  STATUS="CRITICAL - 'jq' is missing"
-  CODE=2
+  STATUS="UNKOWN - 'jq' is missing"
+  CODE=3
 fi
 
 [[ $STATUS ]] && echo $STATUS
