@@ -93,6 +93,8 @@ class nagios::server (
   $plugin_slack_channel  = '#alerts',
   $plugin_slack_botname  = 'nagios',
   $plugin_slack_webhook  = undef,
+  $plugin_teams          = false,
+  $plugin_teams_webhook  = undef,
   $plugin_redis          = false,
   $plugin_redis_sentinel = false,
   $selinux               = $::selinux,
@@ -168,6 +170,23 @@ class nagios::server (
       ensure => absent,
     }
   }
+
+  if $plugin_teams {
+    if ! $plugin_teams_webhook {
+      fail('$plugin_teams_webhook must be passed when $plugin_teams is enabled.')
+    }
+    file { "${plugin_dir}/teams_nagios":
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0755',
+      content => template('nagios/plugins/teams_nagios'),
+    }
+  } else {
+    file { "${plugin_dir}/teams_nagios":
+      ensure => 'absent',
+    }
+  }
+
   if $plugin_slack {
     if ! $plugin_slack_webhost or ! $plugin_slack_webhook {
       fail('$plugin_slack_webhost and $plugin_slack_webhook must be pass when $plugin_slack is enabled.')
