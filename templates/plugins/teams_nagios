@@ -36,7 +36,7 @@ my %color = (
   'WARNING' => 'ffff00',
   'UNKNOWN' => '808080',
   'CRITICAL' => 'ff0000',
-  'UP' => '008000',
+  'UP' => '00ff00',
   'DOWN' => 'ff0000',
   'UNREACHABLE' => 'ff8700'
 );
