@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# enforcing  - SELinux security policy is enforced.
+# permissive - SELinux prints warnings instead of enforcing.
+# disabled   - No SELinux policy is loaded.
+
+if [[ $(command -v sestatus >/dev/null 2>&1) -eq "0" ]]; then
+  if [[ $(command -v awk >/dev/null 2>&1) -eq "0" ]]; then
+    SELINUX_CURRENT_MODE=$(sestatus  | awk '/Current mode/ {print $3}')
+    if [ -n "$SELINUX_CURRENT_MODE" ] && [ "$SELINUX_CURRENT_MODE" != '' ]; then
+      if [ "$SELINUX_CURRENT_MODE" == 'enforcing' ]; then
+        STATUS="OK - SELINUX Current mode: $SELINUX_CURRENT_MODE"
+        CODE=0
+      else
+        STATUS="CRITICAL - SELINUX Current mode: $SELINUX_CURRENT_MODE"
+        CODE=2
+      fi
+    else
+      STATUS="UNKOWN - SELINUX Current mode: '$SELINUX_CURRENT_MODE'"
+      CODE=3
+    fi
+  else
+    STATUS="UNKOWN - 'awk' is missing"
+    CODE=3
+  fi
+else
+  STATUS="UNKOWN - 'sestatus' is missing"
+  CODE=3
+fi
+
+[[ $STATUS ]] && echo $STATUS
+[[ $CODE ]] && exit $CODE
