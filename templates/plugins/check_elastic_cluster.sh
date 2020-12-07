@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+ 
+tmp_file=/tmp/$0_$$.tmp
+ 
+if [[ $(command -v curl >/dev/null 2>&1) -ne "0" ]]; then
+  echo "CRITICAL - Curl is missing"
+  exit 3
+fi
+ 
+if [[ $(command -v docker >/dev/null 2>&1) -ne "0" ]]; then
+  echo "CRITICAL - Docker is missing"
+  exit 3
+fi
+ 
+if [[ $(command -v jq >/dev/null 2>&1) -ne "0" ]]; then
+  echo "CRITICAL - Jq is missing"
+  exit 3
+fi
+ 
+while getopts "u:a:s:h::" opt; do
+  case "$opt" in
+    u)
+      RANCHER_URL="$OPTARG"
+      ;;
+    a)
+      RANCHER_ACCESS_KEY="$OPTARG"
+      ;;
+    s)
+      RANCHER_SECRET_KEY="$OPTARG"
+      ;;
+  esac
+done
+ 
+rm -f ${tmp_file}
+touch ${tmp_file}
+ 
+CONTAINERS=$(docker ps --filter 'name=elasticsearch-client-elasticsearch-master' --format '{{ .ID }}' 2>/dev/null)
+ 
+if [ ! -z "${CONTAINERS}" ]; then
+  for CONTAINER in ${CONTAINERS} ; do
+    docker exec -it ${CONTAINER} /usr/bin/curl -s http://localhost:9200/_cluster/health?local=true | jq -r '.cluster_name + " " + .status + " (" + ( .number_of_data_nodes | tostring ) + " nodes, " + ( .active_shards | tostring ) + " shards, " + ( .unassigned_shards | tostring ) + " unassigned, " + ( .initializing_shards | tostring ) + " initializing and " + ( .relocating_shards | tostring ) + " relocating)" ' >> ${tmp_file} 2> /dev/null
+  done
+fi
+ 
+HOST_IP=$(grep $(hostname) /etc/hosts | cut -d "    " -f 1)
+ 
+CLUSTERS=$(curl -s -u ${RANCHER_ACCESS_KEY}:${RANCHER_SECRET_KEY} ${RANCHER_URL}/v2-beta/hosts | tee ${tmp_file}2 | jq -r --arg ip ${HOST_IP} '.data[] | select(.agentIpAddress == $ip) | [ .labels | to_entries | .[] | select(.value == "a") ] | .[].key' 2>/dev/null)
+ 
+if [ -z "${CLUSTERS}" ]; then
+  HOST_TYPE=$(cat ${tmp_file}2 | jq -r --arg ip ${HOST_IP} '.data[] | select(.agentIpAddress == $ip) | [ .labels | to_entries | .[] | select(.key == "type") ] | .[].value' 2>/dev/null)
+  if [ "t${HOST_TYPE}" = "tinfrastructure" ]; then
+    CLUSTERS="logs"
+  fi
+fi
+ 
+if [ ! -z "${CLUSTERS}" ]; then
+  for CLUSTER in ${CLUSTERS} ; do
+    if [ "t$(grep ${CLUSTER} ${tmp_file})" = "t" ]; then
+      echo "${CLUSTER} red (NOT RUNNING)" >> ${tmp_file}
+    fi
+  done
+fi
+ 
+STATUS_CODE=3
+STATUS_STR=UNKNOWN
+ 
+if [ "t$(grep green ${tmp_file})" != "t" ]; then
+  STATUS_CODE=0
+  STATUS_STR=OK
+fi
+ 
+if [ "t$(grep yellow ${tmp_file})" != "t" ]; then
+  STATUS_CODE=1
+  STATUS_STR=WARNING
+fi
+ 
+if [ "t$(grep red ${tmp_file})" != "t" ]; then
+  STATUS_CODE=2
+  STATUS_STR=CRITICAL
+fi
+ 
+echo "${STATUS_STR}: $(sort ${tmp_file} | sed -z -e 's/\n\(.\)/: \1/g')"
+ 
+rm -f ${tmp_file} ${tmp_file}2
+ 
+exit ${STATUS_CODE}
