@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
  
-tmp_file=/tmp/$0_$$.tmp
+tmp_file=/tmp/$(basename $0)_$$.tmp
  
 if [[ $(command -v curl >/dev/null 2>&1) -ne "0" ]]; then
   echo "CRITICAL - Curl is missing"
@@ -38,11 +38,11 @@ CONTAINERS=$(docker ps --filter 'name=elasticsearch-client-elasticsearch-master'
  
 if [ ! -z "${CONTAINERS}" ]; then
   for CONTAINER in ${CONTAINERS} ; do
-    docker exec -it ${CONTAINER} /usr/bin/curl -s http://localhost:9200/_cluster/health?local=true | jq -r '.cluster_name + " " + .status + " (" + ( .number_of_data_nodes | tostring ) + " nodes, " + ( .active_shards | tostring ) + " shards, " + ( .unassigned_shards | tostring ) + " unassigned, " + ( .initializing_shards | tostring ) + " initializing and " + ( .relocating_shards | tostring ) + " relocating)" ' >> ${tmp_file} 2> /dev/null
+    docker exec -i ${CONTAINER} /usr/bin/curl -s http://localhost:9200/_cluster/health?local=true | jq -r '.cluster_name + " " + .status + " (" + ( .number_of_data_nodes | tostring ) + " nodes, " + ( .active_shards | tostring ) + " shards, " + ( .unassigned_shards | tostring ) + " unassigned, " + ( .initializing_shards | tostring ) + " initializing and " + ( .relocating_shards | tostring ) + " relocating)" ' >> ${tmp_file} 2> /dev/null
   done
 fi
  
-HOST_IP=$(grep $(hostname) /etc/hosts | cut -d "    " -f 1)
+HOST_IP=$(grep $(hostname) /etc/hosts | cut -d "	" -f 1)
  
 CLUSTERS=$(curl -s -u ${RANCHER_ACCESS_KEY}:${RANCHER_SECRET_KEY} ${RANCHER_URL}/v2-beta/hosts | tee ${tmp_file}2 | jq -r --arg ip ${HOST_IP} '.data[] | select(.agentIpAddress == $ip) | [ .labels | to_entries | .[] | select(.value == "a") ] | .[].key' 2>/dev/null)
  
