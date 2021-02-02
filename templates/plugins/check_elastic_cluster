@@ -61,7 +61,7 @@ if [ ! -z "${CLUSTERS}" ]; then
   done
 fi
 
-sed -e '/green/d' ${tmp_file}
+sed -i -e '/green/d' ${tmp_file}
 
 STATUS_CODE=3
 STATUS_STR=UNKNOWN
