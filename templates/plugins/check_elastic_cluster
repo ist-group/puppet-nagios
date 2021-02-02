@@ -60,11 +60,13 @@ if [ ! -z "${CLUSTERS}" ]; then
     fi
   done
 fi
- 
+
+sed -e '/green/d' ${tmp_file}
+
 STATUS_CODE=3
 STATUS_STR=UNKNOWN
  
-if [ "t$(grep green ${tmp_file})" != "t" ]; then
+if [ "t$(grep green ${tmp_file})" != "t" ] || [ ! -s $tmp_file]; then
   STATUS_CODE=0
   STATUS_STR=OK
 fi
