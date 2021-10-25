@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+ 
+tmp_file=/tmp/$(basename $0)_$$.tmp
+ 
+if [[ $(command -v curl >/dev/null 2>&1) -ne "0" ]]; then
+  echo "CRITICAL - Curl is missing"
+  exit 3
+fi
+ 
+if [[ $(command -v jq >/dev/null 2>&1) -ne "0" ]]; then
+  echo "CRITICAL - Jq is missing"
+  exit 3
+fi
+ 
+while getopts "u:a:s:h::" opt; do
+  case "$opt" in
+    u)
+      RANCHER_URL="$OPTARG"
+      ;;
+    a)
+      RANCHER_ACCESS_KEY="$OPTARG"
+      ;;
+    s)
+      RANCHER_SECRET_KEY="$OPTARG"
+      ;;
+  esac
+done
+ 
+curl -sf -m 15 -X POST -H 'Content-Type: application/json' -H 'kbn-xsrf: true' -d '{"query":{"bool":{"must":[{"match_phrase":{"docker_host":"etc-celk-01.etc.ist-products.rocks"}},{"match":{"message":"overhead, spent"}},{"bool":{"should":[{"match":{"service_name":"elasticsearch-master"}},{"match":{"service_name":"elasticsearch-client"}}]}},{"range":{"@timestamp":{"gte":"now-1h","lt":"now"}}}]}},"aggs":{"group_by_container_name":{"terms":{"field":"container_name.keyword"}}},"size":0}' 'http://celk.celk.ist.com/api/console/proxy?path=%2Flogs-*-celk%2F_search&method=POST' | jq -r '.aggregations.group_by_container_name.buckets[] | .key + ": " + ( .doc_count | tostring )' > ${tmp_file}
+
+if [ "t$(grep -v ': 1' ${tmp_file})" != "t" ]; then
+  STATUS_STR=$(awk '$2>max {max=$2} END {if(max>10) print"CRITICAL"; else print"WARNING"}' ${tmp_file})
+  if [ "${STATUS_STR}" = "CRITICAL" ]; then
+    STATUS_CODE=2
+  else
+    STATUS_CODE=1
+  fi
+else
+  STATUS_CODE=0
+  STATUS_STR=OK
+fi
+
+echo "${STATUS_STR}: $(sort ${tmp_file} | sed -z -e 's/\n\(.\)/: \1/g')"
+ 
+rm -f ${tmp_file}
+ 
+exit ${STATUS_CODE}
