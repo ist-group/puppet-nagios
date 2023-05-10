@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ $LC_NUMERIC != 'C' ]; then
+if [ "t$LC_NUMERIC" != 'tC' ]; then
   OLD_LC_NUMERIC=$LC_NUMERIC
   export LC_NUMERIC=C
 fi
@@ -68,7 +68,10 @@ if command -v mysql >/dev/null 2>&1; then
     fi
     SHOULDBE_MAX_CONNECTIONS=$(( ($SAFE_MEMORY - $SHOULDBE_INNODB_BUFFER_POOL_SIZE_BYTES) / $PER_THREAD_BUFFER_SIZE ))
     if [ $SHOULDBE_MAX_CONNECTIONS -lt $MAX_CONNECTIONS ]; then
-     STATUS+="max_connections: ${SHOULDBE_MAX_CONNECTIONS}, "
+     STATUS="max_connections: ${SHOULDBE_MAX_CONNECTIONS}, "
+     STATUS+="innodb_buffer_pool_size: ${SHOULDBE_INNODB_BUFFER_POOL_SIZE}G, "
+     STATUS+="innodb_buffer_pool_instances: $SHOULDBE_INNODB_BUFFER_POOL_INSTANCES, "
+     STATUS+="innodb_log_file_size: ${SHOULDBE_INNODB_LOG_FILE_SIZE}M, "
      CODE=1
     fi
     STATUS=${STATUS%', '}
@@ -83,7 +86,7 @@ if command -v mysql >/dev/null 2>&1; then
   fi
 fi
 
-if [ $LC_NUMERIC != $OLD_LC_NUMERIC ]; then
+if [ "t$LC_NUMERIC" != "t$OLD_LC_NUMERIC" ]; then
   export LC_NUMERIC=$OLD_LC_NUMERIC
 fi
 
